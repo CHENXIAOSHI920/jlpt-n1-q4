@@ -19607,7 +19607,8 @@ const state = {
   matchErrorSids: [],
   cardDeck: [],
   cardIndex: 0,
-  cardRevealed: false
+  cardRevealed: false,
+  activeQuestionId: ''
 };
 
 function defaultStore() {
@@ -19780,13 +19781,55 @@ function rememberEvidencePosition() {
   saveStore();
 }
 
+function currentViewQuestionId() {
+  if (state.view === 'match') return state.matchDeck[state.matchIndex]?.id || '';
+  if (state.view === 'practice') return state.deck[state.index]?.id || '';
+  if (state.view === 'cards') return state.cardDeck[state.cardIndex]?.id || '';
+  return state.activeQuestionId || '';
+}
+
+function rememberActiveQuestion(id) {
+  if (!id || !questionById[id]) return;
+  if (state.activeQuestionId === id &&
+      store.lastMatchId === id &&
+      store.lastEvidenceId === id) return;
+  state.activeQuestionId = id;
+  store.lastMatchId = id;
+  store.lastEvidenceId = id;
+  saveStore();
+}
+
+function focusEvidence(id) {
+  rebuildCards();
+  const source = questionById[id];
+  let found = state.cardDeck.findIndex((question) => question.id === id);
+  if (found < 0 && source) {
+    found = state.cardDeck.findIndex((question) => question.word === source.word);
+  }
+  state.cardIndex = found >= 0 ? found : 0;
+  return state.cardDeck[state.cardIndex] || null;
+}
+
+function selectQuestionEverywhere(id, view) {
+  const question = questionById[id];
+  if (!question) return;
+  state.view = view;
+  state.indexMode = view === 'match' ? 'match' : 'practice';
+  state.matchErrorMode = false;
+  state.matchErrorSids = [];
+  rebuildMatch(id);
+  rebuildDeck('all', id);
+  focusEvidence(id);
+  state.cardRevealed = false;
+  rememberActiveQuestion(id);
+  render();
+}
+
 function openEvidence(id) {
   state.view = 'cards';
   state.cardRevealed = true;
-  rebuildCards();
-  const found = state.cardDeck.findIndex((question) => question.id === id);
-  state.cardIndex = found >= 0 ? found : 0;
-  rememberEvidencePosition();
+  focusEvidence(id);
+  rememberActiveQuestion(id);
   render();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -19900,9 +19943,9 @@ function renderIndexPanel() {
   const mode = state.indexMode;
   const source = mode === 'match' ? (DATA.matches || []) : (DATA.questions || []);
   const query = state.indexQuery.trim().toLowerCase();
-  const activeId = mode === 'match'
+  const activeId = state.activeQuestionId || (mode === 'match'
     ? state.matchDeck[state.matchIndex]?.id
-    : state.deck[state.index]?.id;
+    : state.deck[state.index]?.id);
 
   const grouped = {};
   source.forEach((item) => {
@@ -19950,6 +19993,7 @@ function renderIndexPanel() {
 
 function render() {
   ensureToday();
+  rememberActiveQuestion(currentViewQuestionId());
   const countdown = daysUntilJLPT();
   $('#countdownDays').textContent = countdown;
   $('#countdownLabel').textContent = countdown === 0 ? 'JLPT' : '距JLPT';
@@ -20630,19 +20674,26 @@ function toggleStar() {
 }
 
 function switchView(view) {
+  const activeId = state.activeQuestionId || currentViewQuestionId();
   state.view = view;
   if (view === 'match') state.indexMode = 'match';
   if (view === 'practice') state.indexMode = 'practice';
   if (view === 'match') {
-    const current = state.matchDeck[state.matchIndex]?.id;
-    rebuildMatch(store.lastMatchId || current);
+    rebuildMatch(activeId || state.matchDeck[state.matchIndex]?.id);
   }
   if (view === 'practice') {
-    rebuildDeck(state.filter, null);
+    if (activeId) {
+      rebuildDeck(state.filter, activeId);
+      if (!state.deck.some((question) => question.id === activeId)) {
+        rebuildDeck('all', activeId);
+      }
+    } else {
+      rebuildDeck('all', null);
+    }
   }
   if (view === 'cards') {
     state.cardRevealed = false;
-    rebuildCards();
+    focusEvidence(activeId);
   }
   render();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -20676,16 +20727,7 @@ document.addEventListener('click', (event) => {
   const indexNumber = event.target.closest('[data-index-id]');
   if (indexNumber) {
     const id = indexNumber.dataset.indexId;
-    if (state.indexMode === 'match') {
-      state.view = 'match';
-      state.matchErrorMode = false;
-      rebuildMatch(id);
-    } else {
-      state.view = 'practice';
-      state.filter = 'all';
-      rebuildDeck('all', id);
-    }
-    render();
+    selectQuestionEverywhere(id, state.indexMode === 'match' ? 'match' : 'practice');
     closeIndexPanel();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
@@ -21032,11 +21074,14 @@ document.addEventListener('keydown', (event) => {
 
 $('#subtitle').textContent = DATA.meta.subtitle;
 document.title = DATA.meta.title + ' · 語彙の使い方';
-rebuildDeck('all', null);
 rebuildMatch(store.lastMatchId || null);
-rebuildCards();
-const lastEvidenceIndex = state.cardDeck.findIndex((question) => question.id === store.lastEvidenceId);
-if (lastEvidenceIndex >= 0) state.cardIndex = lastEvidenceIndex;
+const initialId = state.matchDeck[state.matchIndex]?.id ||
+  store.lastEvidenceId ||
+  DATA.questions[0]?.id ||
+  null;
+state.activeQuestionId = initialId || '';
+rebuildDeck('all', initialId);
+focusEvidence(initialId);
 render();
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
   addEventListener('load', function () {

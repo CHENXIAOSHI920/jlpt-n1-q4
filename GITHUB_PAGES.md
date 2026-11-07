@@ -22,7 +22,7 @@
 先在 GitHub 建好空仓库，然后把下面的 `你的用户名` 和 `仓库名` 换成实际值：
 
 ```sh
-cd "/Users/chenxiaoshi/Desktop/日语单词记忆/问题四开发/问题四网站/发布用"
+cd "这里替换为本文件夹的路径"
 git init
 git add .
 git commit -m "Add JLPT N1 question 4 study app"
@@ -36,4 +36,4 @@ git push -u origin main
 ## 两个注意点
 
 - 免费 GitHub Pages 通常要求仓库是公开的。公开后，别人可以打开网页并保存 HTML；如果你准备售卖，单靠 GitHub Pages 不能防止内容被复制，需要另外做登录或付费墙。
-- 以后更新题目后，把 `sw.js` 里的 `CACHE` 名称改成新版本（例如 `jlpt-q4-v2`），否则已经安装过网页的用户可能继续看到旧缓存。
+- 以后更新题目后，把 `sw.js` 里的 `CACHE` 名称改成新版本（例如 `jlpt-q4-v3`），否则已经安装过网页的用户可能继续看到旧缓存。

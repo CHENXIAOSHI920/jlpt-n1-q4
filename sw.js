@@ -1,5 +1,5 @@
 // 第一次联网打开后缓存全部应用文件，之后断网也能继续使用。
-const CACHE = 'jlpt-n1-q4-v11';
+const CACHE = 'jlpt-n1-q4-v12';
 const ASSETS = [
   './',
   './index.html',
